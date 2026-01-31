@@ -134,13 +134,24 @@
             background: none;
         }
 
+        /* UPDATED: Larger Video Container */
         #video-container {
             position: absolute;
             bottom: 20px;
             left: 20px;
-            width: 200px;
-            height: 150px;
+            width: 360px; /* Increased size */
+            height: 270px; /* Increased size */
             z-index: 5;
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        }
+
+        /* Mobile adjustment to keep it fitting on screen */
+        @media (max-width: 768px) {
+            #video-container {
+                width: 160px;
+                height: 120px;
+            }
         }
 
         #video-preview,
@@ -167,7 +178,7 @@
 
         #console-log {
             position: absolute;
-            bottom: 180px;
+            bottom: 300px; /* Moved up to clear larger video */
             left: 20px;
             width: 200px;
             font-family: 'Courier New', monospace;
