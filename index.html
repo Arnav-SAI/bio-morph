@@ -134,23 +134,73 @@
             background: none;
         }
 
-        #video-preview {
+        #video-container {
             position: absolute;
             bottom: 20px;
             left: 20px;
-            width: 160px;
-            height: 120px;
-            object-fit: cover;
-            border-radius: 12px;
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            opacity: 0.5;
+            width: 200px;
+            height: 150px;
             z-index: 5;
-            transform: scaleX(-1);
-            transition: opacity 0.3s;
         }
 
-        #video-preview:hover {
-            opacity: 1;
+        #video-preview,
+        #output-canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            border-radius: 12px;
+            transform: scaleX(-1);
+        }
+
+        #video-preview {
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            opacity: 0.6;
+        }
+
+        #output-canvas {
+            z-index: 6;
+            pointer-events: none;
+        }
+
+        #console-log {
+            position: absolute;
+            bottom: 180px;
+            left: 20px;
+            width: 200px;
+            font-family: 'Courier New', monospace;
+            font-size: 11px;
+            color: #44ff88;
+            background: rgba(10, 10, 15, 0.9);
+            padding: 12px;
+            border-radius: 8px;
+            border: 1px solid rgba(68, 255, 136, 0.2);
+            pointer-events: none;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            z-index: 5;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+            max-height: 150px;
+            overflow: hidden;
+        }
+
+        .log-entry {
+            opacity: 0;
+            animation: fadeIn 0.3s forwards;
+        }
+
+        .log-entry::before {
+            content: '> ';
+            color: #888;
+        }
+
+        @keyframes fadeIn {
+            to {
+                opacity: 1;
+            }
         }
 
         .loading-overlay {
@@ -232,7 +282,12 @@
 
     <div id="canvas-container"></div>
 
-    <video id="video-preview" playsinline muted></video>
+    <div id="console-log"></div>
+
+    <div id="video-container">
+        <video id="video-preview" playsinline muted></video>
+        <canvas id="output-canvas"></canvas>
+    </div>
 
     <div id="ui-container">
         <h1>
@@ -279,10 +334,26 @@
         const loadingScreen = document.getElementById('loading');
         const visionStatus = document.getElementById('vision-status');
         const videoElement = document.getElementById('video-preview');
+        const outputCanvas = document.getElementById('output-canvas');
+        const consoleContainer = document.getElementById('console-log');
+        let canvasCtx;
 
         init();
         animate();
         initMediaPipe();
+
+        function log(msg) {
+            const entry = document.createElement('div');
+            entry.className = 'log-entry';
+            const timestamp = new Date().toLocaleTimeString('en-US', { hour12: false, hour: "numeric", minute: "numeric", second: "numeric" });
+            entry.textContent = `[${timestamp}] ${msg}`;
+            consoleContainer.appendChild(entry);
+
+            // Keep only last 6 lines
+            while (consoleContainer.children.length > 6) {
+                consoleContainer.removeChild(consoleContainer.firstChild);
+            }
+        }
 
         function init() {
             scene = new THREE.Scene();
@@ -306,9 +377,13 @@
             const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
             scene.add(ambientLight);
 
+            scene.add(ambientLight);
+
             const pointLight = new THREE.PointLight(0xffffff, 1);
             pointLight.position.set(10, 10, 10);
             scene.add(pointLight);
+
+            log("Renderer ready ✓");
 
             geometry = new THREE.BufferGeometry();
             positions = new Float32Array(PARTICLE_COUNT * 3);
@@ -340,6 +415,7 @@
             scene.add(particles);
 
             generateSphere();
+            log("5000 particles created");
 
             window.addEventListener('resize', onWindowResize);
 
@@ -368,6 +444,7 @@
             currentTemplate = template;
             document.querySelectorAll('button').forEach(btn => btn.classList.remove('active'));
             document.getElementById(`btn-${template}`).classList.add('active');
+            log(`Shape: ${template}`);
 
             switch (template) {
                 case 'sphere': generateSphere(); break;
@@ -394,7 +471,7 @@
         function generateHeart() {
             for (let i = 0; i < PARTICLE_COUNT; i++) {
                 const phi = Math.random() * Math.PI * 2;
-                const theta = Math.random() * Math.PI;
+                const theta = Math.random() * Math.PI * 2; // Fixed: full rotation for complete heart
 
                 const x = 16 * Math.pow(Math.sin(theta), 3);
                 const y = 13 * Math.cos(theta) - 5 * Math.cos(2 * theta) - 2 * Math.cos(3 * theta) - Math.cos(4 * theta);
@@ -537,6 +614,10 @@
         }
 
         function initMediaPipe() {
+            log("Loading model...");
+
+            canvasCtx = outputCanvas.getContext('2d');
+
             const hands = new Hands({
                 locateFile: (file) => {
                     return `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`;
@@ -552,6 +633,8 @@
 
             hands.onResults(onResults);
 
+            log("Hand AI ready ✓");
+
             const cameraUtils = new Camera(videoElement, {
                 onFrame: async () => {
                     await hands.send({ image: videoElement });
@@ -560,18 +643,38 @@
                 height: 480
             });
 
+            log("Starting camera...");
+
             cameraUtils.start()
                 .then(() => {
                     loadingScreen.classList.add('hidden');
                     console.log('Camera started');
+                    log("Camera active ✓");
                 })
                 .catch(err => {
                     console.error('Camera failed', err);
+                    log("Error: No Camera Access");
                     loadingScreen.innerHTML = '<div style="color:white">Camera access required for gestures.<br>Please allow access.</div>';
                 });
         }
 
         function onResults(results) {
+            // Update Canvas
+            outputCanvas.width = videoElement.videoWidth;
+            outputCanvas.height = videoElement.videoHeight;
+
+            canvasCtx.save();
+            canvasCtx.clearRect(0, 0, outputCanvas.width, outputCanvas.height);
+            // Draw skeleton
+            if (results.multiHandLandmarks) {
+                for (const landmarks of results.multiHandLandmarks) {
+                    drawConnectors(canvasCtx, landmarks, HAND_CONNECTIONS,
+                        { color: '#00FF00', lineWidth: 3 });
+                    drawLandmarks(canvasCtx, landmarks, { color: '#FF0000', lineWidth: 1 });
+                }
+            }
+            canvasCtx.restore();
+
             if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
                 visionStatus.classList.add('active');
 
