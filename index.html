@@ -327,7 +327,8 @@
         let material;
         let currentTemplate = 'sphere';
         let handTension = 0;
-        let handRotationOffset = 0;
+        let handRotationY = 0;
+        let handRotationX = 0;
         let baseScale = 1;
 
         const container = document.getElementById('canvas-container');
@@ -609,7 +610,8 @@
             positionsAttribute.needsUpdate = true;
 
             const time = Date.now() * 0.001;
-            particles.rotation.y = (time * 0.1) + handRotationOffset;
+            particles.rotation.y = (time * 0.1) + handRotationY;
+            particles.rotation.x = handRotationX;
 
             renderer.render(scene, camera);
         }
@@ -726,20 +728,24 @@
 
                 // Handle Rotation
                 if (rotateHandLandmarks) {
-                    // Use wrist x-position for rotation
+                    // Use wrist position for rotation
                     const wristX = rotateHandLandmarks[0].x;
-                    // Map 0..1 to a rotation range, e.g., -PI to PI
-                    // Inverting direction because dragging "Right to Left" (high x to low x) should rotate.
-                    // Actually, let's map it directly to an offset.
-                    handRotationOffset = (wristX - 0.5) * 5; // +/- 2.5 radians
+                    const wristY = rotateHandLandmarks[0].y;
+
+                    // Horizontal movement (X) -> Rotate around Y axis
+                    handRotationY = (wristX - 0.5) * 5;
+
+                    // Vertical movement (Y) -> Rotate around X axis
+                    handRotationX = (wristY - 0.5) * 5;
                 }
 
             } else {
                 visionStatus.classList.remove('active');
                 handTension = (handTension * 0.95);
-                // Also decay rotation offset? Or keep it? 
-                // Let's decay it so it goes back to auto-rotate logic cleanly if hand removed
-                handRotationOffset = handRotationOffset * 0.95;
+
+                // Decay rotations
+                handRotationY = handRotationY * 0.95;
+                handRotationX = handRotationX * 0.95;
             }
         }
     </script>
