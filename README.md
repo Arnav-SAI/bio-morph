@@ -1,4 +1,4 @@
-# BioMorph 🌌✋
+# BioMorph 🌌
 
 **BioMorph** is an interactive, browser-based digital art experiment that fuses computer vision with 3D generative particles. Experience a living particle system that reacts in real-time to your hand gestures.
 
